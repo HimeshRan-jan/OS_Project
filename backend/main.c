@@ -471,8 +471,17 @@ static void handle_allocate(const char *json, SystemState *state) {
     }
 
     int result = allocate_resources(state, pid, request);
-    if (result < 0) {
-        out_append("{\"success\":false,\"error\":\"Allocation failed. Request exceeds need or available resources.\"}");
+    if (result == -1) {
+        out_append("{\"success\":false,\"error\":\"Allocation failed. Invalid process or request exceeds remaining need.\"}");
+        return;
+    } else if (result == -2) {
+        out_append("{\"success\":false,\"error\":\"Allocation failed. Request exceeds currently available resources.\"}");
+        return;
+    } else if (result == -3) {
+        out_append("{\"success\":false,\"error\":\"Allocation denied. Granting this request would lead to an unsafe state (potential deadlock).\"}");
+        return;
+    } else if (result < 0) {
+        out_append("{\"success\":false,\"error\":\"Allocation failed for an unknown reason.\"}");
         return;
     }
 

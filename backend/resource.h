@@ -13,7 +13,10 @@
 
 /* Allocate additional resources to a process.
  * request[] specifies how many of each resource to add.
- * Returns: 0 on success, -1 on error (insufficient or invalid) */
+ * Returns: 0 on success,
+ *         -1 on error (invalid request or request > need)
+ *         -2 on error (request > available)
+ *         -3 on error (allocation leads to an unsafe state) */
 int allocate_resources(SystemState *state, int pid, const int *request);
 
 /* Release resources from a process.

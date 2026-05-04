@@ -6,6 +6,7 @@
  */
 
 #include "resource.h"
+#include "deadlock.h"
 
 /*
  * Allocate additional resources to a process.
@@ -13,11 +14,16 @@
  *   1. The process exists and is active
  *   2. The request doesn't exceed the process's remaining need
  *   3. Sufficient resources are available
+ *   4. The allocation leaves the system in a SAFE state (Banker's Check)
  *
- * Returns: 0 on success, -1 on error
+ * Returns: 0 on success,
+ *         -1 on error (invalid request or request > need)
+ *         -2 on error (request > available)
+ *         -3 on error (allocation leads to an unsafe state)
  */
 int allocate_resources(SystemState *state, int pid, const int *request) {
     int idx, j;
+    BankersResult safety_check;
 
     if (!state || !request) return -1;
 
@@ -32,14 +38,27 @@ int allocate_resources(SystemState *state, int pid, const int *request) {
 
     /* Validate: request must not exceed available resources */
     for (j = 0; j < state->num_resources; j++) {
-        if (request[j] > state->available[j]) return -1;
+        if (request[j] > state->available[j]) return -2;
     }
 
-    /* Perform allocation */
+    /* Pretend to perform allocation */
     for (j = 0; j < state->num_resources; j++) {
         state->processes[idx].allocation[j] += request[j];
         state->available[j] -= request[j];
         state->processes[idx].need[j] -= request[j];
+    }
+
+    /* Check if the new state is SAFE using Banker's Algorithm */
+    safety_check = run_bankers(state);
+
+    if (!safety_check.is_safe) {
+        /* Rollback the allocation */
+        for (j = 0; j < state->num_resources; j++) {
+            state->processes[idx].allocation[j] -= request[j];
+            state->available[j] += request[j];
+            state->processes[idx].need[j] += request[j];
+        }
+        return -3;
     }
 
     return 0;
